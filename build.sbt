@@ -6,6 +6,8 @@ version := "0.1.0"
 
 scalaVersion := "2.11.5"
 
+resolvers += "Typesafe repository" at "http://repo.typesafe.com/typesafe/releases/"
+
 resolvers += "spray" at "http://repo.spray.io/"
 
 resolvers += "Sonatype Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots/"
