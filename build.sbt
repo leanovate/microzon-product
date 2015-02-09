@@ -37,13 +37,27 @@ net.virtualvoid.sbt.graph.Plugin.graphSettings
 
 mainClass in assembly := Some("de.leanovate.dose.product.Application")
 
-target in assembly := Option(System.getenv("DIST_DIR")).map(new File(_)).getOrElse(baseDirectory.value / ".." / "vagrant/dists")
+val debian = TaskKey[Unit]("debian", "Create debian package")
 
-val dist = TaskKey[Unit]("dist", "Copies assembly jar")
-
-dist <<= (assembly, baseDirectory) map { (asm, base) => 
-  val source = asm.getPath
-  var target = (base / ".." / "docker/product/dist").getPath
-  Seq("mkdir", "-p", target) !!;
-  Seq("cp", source, target) !!
+debian <<= (assembly, baseDirectory, version) map { (asm, base, ver) =>
+  val bintrayUser = System.getenv("BINTRAY_USER")
+  val bintrayKey = System.getenv("BINTRAY_KEY")
+  val release = ver + "-" + System.getenv("TRAVIS_BUILD_NUMBER")
+  val debOut = (base / "target" / "microzon-product.deb")
+  val debBase = (base / "target" / "deb")
+  IO.copyFile(asm, debBase / "opt" / "product" / "product.jar")
+  IO.copyFile(base / "src" / "main" / "supervisor" / "product.conf", debBase / "etc" / "supervisor" / "conf.d" / "product.conf")
+  IO.write(debBase / "DEBIAN" / "control",
+    s"""Package: microzon-product
+    |Version: $release
+    |Section: misc
+    |Priority: extra
+    |Architecture: all
+    |Depends: supervisor, oracle-java8-installer
+    |Maintainer: Bodo Junglas <landru@untoldwind.net>
+    |Homepage: http://github.com/leanovate/microzon
+    |Description: Product service
+    |""".stripMargin)
+  s"/usr/bin/fakeroot /usr/bin/dpkg-deb -b ${debBase.getPath} ${debOut.getPath}" !;
+  s"/usr/bin/curl -T ${debOut.getPath} -u${bintrayUser}:${bintrayKey} https://api.bintray.com/content/untoldwind/deb/microzon/${ver}/pool/main/m/microzon/microzon-product-${release}_all.deb;deb_distribution=trusty;deb_component=main;deb_architecture=all?publish=1" !
 }
